@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("b2bAPIDB") ?? "Data Source=b2bAPI.db;Cache=Shared";
-var sharedSaltKey = builder.Configuration.GetConnectionString("SharedSaltKey") ?? "SHAREDSALTKEY";
+var sharedSaltKey = builder.Configuration.GetSection("AppSettings:SharedSaltKey").Get<string>() ?? "SHAREDSALTKEY";
 
 builder.Services.AddScoped(_ => new SqliteConnection(connectionString));
 builder.Services.AddEndpointsApiExplorer();
@@ -77,8 +77,13 @@ app.MapPost("/gettoken", async ([FromBody] GetTokenModel model, SqliteConnection
 
 app.MapPost("/oursecurejob", async (string tokenString, SqliteConnection db) =>
 {
-    var query = $@"SELECT * FROM Tokens WHERE TokenString='{tokenString}' AND ExpireDate < DATE('now')";
-
+    var query = $@"SELECT * FROM Tokens WHERE TokenString='{tokenString}'";
+    
+    if(token.ExpireDate < DateTime.Now)
+    {
+        return Results.NotFound("Token is expired!");
+    }
+   
     if (await db.QuerySingleOrDefaultAsync<Token>(query) is Token token)
     {
         return Results.Ok("Our secure job executed!");
